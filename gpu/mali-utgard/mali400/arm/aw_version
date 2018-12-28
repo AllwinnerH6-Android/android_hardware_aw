@@ -1,0 +1,14 @@
+mali400: r9p0-01rel0 um android pie arm 001
+
+1. Support Android 9.0 (Pie)
+2. Add user space support of GBM for Mesa 17.3
+
+Build parameters:
+VARIANT=mali400-r1p1-gles-linux-android-oreo-prerotate-no_profiling-dma_buf-rgb_is_xrgb-no_Werror-egl_wait_sync
+TARGET_TOOLCHAIN=arm-linux-gcc-vfp
+TARGET_PLATFORM=default_7a
+CONFIG=release
+CROSS_COMPILE=arm-linux-androideabi-
+
+MD5 Info:
+0043dd83cf07763c62f59293bed71c44  lib/libGLES_mali.so
