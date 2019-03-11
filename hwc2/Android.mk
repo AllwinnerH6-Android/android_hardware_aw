@@ -66,7 +66,6 @@ LOCAL_SHARED_LIBRARIES := \
 
 ifeq ($(TARGET_PLATFORM),homlet)
 	LOCAL_SRC_FILES += other/homlet.cpp
-	LOCAL_CFLAGS += -DHOMLET_PLATFORM
 	LOCAL_C_INCLUDES += vendor/aw/homlet/hardware/include/display
 	LOCAL_SHARED_LIBRARIES += \
 	    libbinder \

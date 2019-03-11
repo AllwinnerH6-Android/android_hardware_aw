@@ -72,6 +72,7 @@ typedef struct hwcDebugFlags{
 	bool dumpLayer;
 	bool closeLayer;
 	bool ctrlfps;
+	bool stopSubmit;
 	int dumpDisplay;
 	int dumpZorder;
 	int closeDisplay;
@@ -288,6 +289,10 @@ void enhanceInit(void)
 	}
 }
 
+bool isStopSubmit() {
+	return hwcDebug->stopSubmit;
+}
+
 void updateDebugFlags(void)
 {
 	char property[PROPERTY_VALUE_MAX];
@@ -296,6 +301,11 @@ void updateDebugFlags(void)
 	unsigned int offset;
 
 	if (property_get("debug.hwc.showfps", ps_fix, NULL) >= 0) {
+		if (!hwc_cmp("stop", ps_fix, 0)) {
+			hwcDebug->stopSubmit = true;
+		} else if (!hwc_cmp("start", ps_fix, 0)) {
+			hwcDebug->stopSubmit = false;
+		}
 		if (!hwc_cmp("off", ps_fix, 0)
 			|| !hwc_cmp("0", ps_fix, 0)) {
 			if ((!hwc_cmp("off.fps", ps_fix, 0)
@@ -481,7 +491,7 @@ void showfps(Display_t *display)
 		}
 
 
-#ifndef HOMLET_PLATFORM
+#ifndef TARGET_PLATFORM_HOMLET
 		if (display->frameCount - hwcDebug->debugDisp[display->displayId].preFramecout < 8
 			&& hdmi_3D_mode == DISPLAY_2D_ORIGINAL && !display->secure) {
 			if (!display->forceClient && display->frameCount > 100) {

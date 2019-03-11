@@ -1,4 +1,3 @@
-
 #include "CameraDebug.h"
 #if DBG_CAMERA_HARDWARE
 #define LOG_NDEBUG 0
@@ -1089,11 +1088,14 @@ void CameraHardware::initDefaultParameters()
         {
             p.set(CameraParameters::KEY_SUPPORTED_PREVIEW_SIZES, sizeStr);
             p.set(CameraParameters::KEY_SUPPORTED_PICTURE_SIZES, sizeStr);
+            p.set(CameraParameters::KEY_SUPPORTED_VIDEO_SIZES, sizeStr);
+
         }
         else
         {
             p.set(CameraParameters::KEY_SUPPORTED_PREVIEW_SIZES, "640x480");
             p.set(CameraParameters::KEY_SUPPORTED_PICTURE_SIZES, "640x480");
+            p.set(CameraParameters::KEY_SUPPORTED_VIDEO_SIZES, "640x480");
         }
         p.set(CameraParameters::KEY_PREVIEW_SIZE, "640x480");
         p.set(CameraParameters::KEY_PICTURE_SIZE, "640x480");
@@ -2856,10 +2858,22 @@ status_t CameraHardware::setParameters(const char* p)
     }
 
     // video size
-    int new_video_width        = 0;
-    int new_video_height    = 0;
+    int new_video_width        = new_preview_width;//0;
+    int new_video_height    = new_preview_height;//0;
     params.getVideoSize(&new_video_width, &new_video_height);
-    LOGV("%s : new_video_width x new_video_height = %dx%d",
+    LOGD("%s getparams: new_video_width x new_video_height = %dx%d",
+         __FUNCTION__, new_video_width, new_video_height);
+    if(new_preview_width > new_video_width){
+        if((new_video_width > 0 && new_video_height> 0) &&
+            (new_video_width < 4096 && new_video_height < 4096)){
+            new_preview_width = new_video_width;
+            new_preview_height = new_video_height;
+        }else{
+            new_video_width = new_preview_width;
+            new_video_height = new_preview_height;
+        }
+    }
+    LOGV("%s  set: new_video_width x new_video_height = %dx%d",
          __FUNCTION__, new_video_width, new_video_height);
     if (0 < new_video_width && 0 < new_video_height)
     {

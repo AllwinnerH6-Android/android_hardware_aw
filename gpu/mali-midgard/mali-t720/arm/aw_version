@@ -1,4 +1,4 @@
-mali-t720: r18p0-01rel0 um android oreo_mr1 arm 007
+mali-t720: r18p0-01rel0 um android P arm 008
 
 Build parameters:
 profile=tx041-release
@@ -13,4 +13,4 @@ ump=0
 afbc=0
 
 MD5 information:
-9957620f726be8717f69c4b2069fe88f  lib/libGLES_mali.so
+d2357bb2a782cfc6f18fc74ebeddd2c5  lib/libGLES_mali.so

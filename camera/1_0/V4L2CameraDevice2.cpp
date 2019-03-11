@@ -612,8 +612,8 @@ status_t V4L2CameraDevice::startDevice(int width,
                                        bool video_hint)
 {
     LOGD("%s, wxh: %dx%d, fmt: %d", __FUNCTION__, width, height, pix_fmt);
-    char prop_value[PROPERTY_VALUE_MAX];
-    int ret = 0;
+	char prop_value[PROPERTY_VALUE_MAX];
+	int ret = 0;
     Mutex::Autolock locker(&mObjectLock);
 
     if (!isConnected())
@@ -627,16 +627,16 @@ status_t V4L2CameraDevice::startDevice(int width,
         LOGE("%s: camera device is already started.", __FUNCTION__);
         return EINVAL;
     }
-
-    char CallingProcessName[128];
-    getCallingProcessName(CallingProcessName);
-    LOGV("%s ++++++++++++%s===========", __FUNCTION__,CallingProcessName);
-    if ((strcmp(CallingProcessName, "com.tencent.mobileqq") == 0)) {
-      property_set("sys.qqmobile.online","true");
-      LOGV("%s hxl =======================", __FUNCTION__);
-      ret = property_get("sys.qqmobile.online", prop_value, "");
-      ALOGV("hxl === startDevice prop_value =%s,ret =%d",prop_value,ret);
-    }
+	
+	char CallingProcessName[128];
+	getCallingProcessName(CallingProcessName);
+	LOGE("%s ++++++++++++%s===========", __FUNCTION__,CallingProcessName);
+	if ((strcmp(CallingProcessName, "com.tencent.mobileqq") == 0)) {
+		property_set("sys.qqmobile.online","true");
+		LOGE("%s hxl =======================", __FUNCTION__);
+		ret = property_get("sys.qqmobile.online", prop_value, ""); 
+		ALOGD("hxl === startDevice prop_value =%s,ret =%d",prop_value,ret);
+	}
     if (mPreviewWindow->mPreviewWindow == NULL) {
         LOGE("mPreviewWindow->mPreviewWindow == NULL, but still started, F:%s,L:%d", __FUNCTION__,__LINE__);
         mPreviewIsNull = true;
@@ -772,7 +772,7 @@ status_t V4L2CameraDevice::startDevice(int width,
 #ifdef USE_ISP
     if (mSensor_Type == V4L2_SENSOR_TYPE_RAW) {
         mIspId = -1;
-        LOGD("hxl === mHalCameraInfo.device_id =================== %d",mHalCameraInfo.device_id);
+		LOGE("hxl === mHalCameraInfo.device_id =================== %d",mHalCameraInfo.device_id);
         mIspId = mAWIspApi->awIspGetIspId(0);
         if (mIspId >= 0) {
             mAWIspApi->awIspStart(mIspId);
@@ -787,11 +787,11 @@ status_t V4L2CameraDevice::startDevice(int width,
 status_t V4L2CameraDevice::stopDevice()
 {
     LOGD("V4L2CameraDevice::stopDevice");
-    char CallingProcessName[128];
-    getCallingProcessName(CallingProcessName);
-    if ((strcmp(CallingProcessName, "com.tencent.mobileqq") == 0)) {
-      property_set("sys.qqmobile.online","false");
-    }
+	char CallingProcessName[128];
+	getCallingProcessName(CallingProcessName);
+	if ((strcmp(CallingProcessName, "com.tencent.mobileqq") == 0)) {
+		property_set("sys.qqmobile.online","false");
+	}
     pthread_mutex_lock(&mConnectMutex);
     if (!mCanBeDisconnected)
     {
@@ -827,17 +827,6 @@ status_t V4L2CameraDevice::stopDevice()
     // v4l2 device unmap buffers
     v4l2UnmapBuf();
 
-    V4L2BUF_t * pbuf = (V4L2BUF_t *)OSAL_Dequeue(&mQueueBufferPreview);
-    while (pbuf != NULL) {
-        LOGD("%s: mQueueBufferPreview:%d, size:%d.", __FUNCTION__, pbuf->index, mQueueBufferPreview.numElem);
-        pbuf = (V4L2BUF_t *)OSAL_Dequeue(&mQueueBufferPreview);
-    }
-    pbuf = (V4L2BUF_t *)OSAL_Dequeue(&mQueueBufferPicture);
-    while (pbuf != NULL) {
-        LOGD("%s: mQueueBufferPicture:%d, size:%d.", __FUNCTION__, pbuf->index, mQueueBufferPreview.numElem);
-        pbuf = (V4L2BUF_t *)OSAL_Dequeue(&mQueueBufferPicture);
-    }
-
     for(int i = 0; i < NB_BUFFER; i++)
     {
         memset(&mV4l2buf[i], 0, sizeof(V4L2BUF_t));
@@ -867,11 +856,11 @@ status_t V4L2CameraDevice::startDeliveringFrames()
 
 
 
-    //when mPreviewWindow null,can not singal to start capture thread
-    if (mPreviewWindow->mPreviewWindow == NULL)
-    {
-      return NO_ERROR;
-    }
+	//when mPreviewWindow null,can not singal to start capture thread
+	if (mPreviewWindow->mPreviewWindow == NULL) 
+	{
+		return NO_ERROR;
+	}
 
 
     pthread_mutex_lock(&mCaptureMutex);
@@ -1035,7 +1024,7 @@ bool V4L2CameraDevice::captureThread()
         usleep(10000);
         return ret;
     }
-    LOGD("The camera driver have %d availbuffer now.",mCurAvailBufferCnt);
+    LOGV("The camera driver have %d availbuffer now.",mCurAvailBufferCnt);
     //modify for cts by clx
     mCurAvailBufferCnt--;
     if (mCurAvailBufferCnt <= 2)
@@ -1337,14 +1326,14 @@ bool V4L2CameraDevice::captureThread()
         //mMemOpsS->sync_cache_cam(mPicBuffer.nShareBufFd);
 
 //For H6 A50, using iommu to encoder a jpeg picture, we should take care the align question.
-#if (defined __PLATFORM_H6__) || (defined __PLATFORM_A50__)
+/*#if (defined __PLATFORM_H6__) || (defined __PLATFORM_A50__)
         memcpy((void*)mPicBuffer.addrVirY, (void*)v4l2_buf.addrVirY, mFrameWidth*mFrameHeight);
         memcpy((void*)(mPicBuffer.addrVirY+ALIGN_16B(mFrameWidth)*ALIGN_16B(mFrameHeight)),
-			(void*)(v4l2_buf.addrVirY+(mFrameWidth)*(mFrameHeight)),
-			(mFrameWidth)*(mFrameHeight)/2);
-#else
+            (void*)(v4l2_buf.addrVirY+(mFrameWidth)*(mFrameHeight)),
+            (mFrameWidth)*(mFrameHeight)/2);
+#else*/
         memcpy((void*)mPicBuffer.addrVirY, (void*)v4l2_buf.addrVirY,frame_size);
-#endif
+//#endif
 
         mMemOpsS->sync_cache_cam(mPicBuffer.nShareBufFd);
 
@@ -1396,7 +1385,6 @@ bool V4L2CameraDevice::captureThread()
     else
     {
         mV4l2buf[v4l2_buf.index].nShareBufFd = mMapMem.nShareBufFd[v4l2_buf.index];
-
         ret = OSAL_Queue(&mQueueBufferPreview, &mV4l2buf[v4l2_buf.index]);
         if (ret != 0)
         {
@@ -1604,6 +1592,7 @@ bool V4L2CameraDevice::previewThread()
 {
     F_LOG;
     int releasebufferindex = -1;
+
     V4L2BUF_t * pbuf = (V4L2BUF_t *)OSAL_Dequeue(&mQueueBufferPreview);
     if (pbuf == NULL)
     {
@@ -1613,12 +1602,19 @@ bool V4L2CameraDevice::previewThread()
         pthread_mutex_unlock(&mPreviewMutex);
         return true;
     }
+    //nsecs_t beforePrevew = (int64_t)systemTime();
+    pthread_mutex_lock(&mPreviewSyncMutex);
+    if(mPreviewThreadState == PREVIEW_STATE_PAUSED){
+        LOGV("preview thread paused");
+        pthread_cond_wait(&mPreviewSyncCond, &mPreviewSyncMutex);
+    }
 
     Mutex::Autolock locker(&mObjectLock);
     if (mMapMem.mem[pbuf->index] == NULL
         /*|| pbuf->addrPhyY == 0*/)
     {
-        LOGD("preview buffer have been released...");
+        LOGV("preview buffer have been released...");
+        pthread_mutex_unlock(&mPreviewSyncMutex);
         return true;
     }
 
@@ -1656,8 +1652,25 @@ bool V4L2CameraDevice::previewThread()
     }
     //else {
 #endif
-    mCallbackNotifier->onNextFrameAvailable(mPreviewWindow->mBufferHandle[pbuf->index],(void*)pbuf,pbuf->index);
-    releasebufferindex = mPreviewWindow->onNextFrameAvailable2(pbuf->index, pbuf->crop_rect);
+
+    int src_width,src_height = 0;
+    if ((pbuf->isThumbAvailable == 1)
+        && (pbuf->thumbUsedForPreview == 1))
+    {
+        src_width            = pbuf->thumbWidth;
+        src_height            = pbuf->thumbHeight;
+    }
+    else
+    {
+        src_width            = pbuf->width;
+        src_height            = pbuf->height;
+    }
+    if((src_width != 0) && (src_height != 0)) {
+      mCallbackNotifier->onNextFrameAvailable(mPreviewWindow->mBufferHandle[pbuf->index],(void*)pbuf,pbuf->index);
+      releasebufferindex = mPreviewWindow->onNextFrameAvailable2(pbuf->index, pbuf->crop_rect);
+    }else {
+      LOGW("skip error preview-frame ");
+    }
 
     if(releasebufferindex >= 0){
         releasePreviewFrame(releasebufferindex);
@@ -2447,9 +2460,9 @@ int V4L2CameraDevice::v4l2QueryBuf()
         buf.index  = i;
 
         if(mIsUsbCamera == true) {
-           buf.memory = V4L2_MEMORY_MMAP;
+           buf.memory = V4L2_MEMORY_MMAP;LOGE("mIsUsbCamera == true");
         } else {
-           buf.memory = V4L2_MEMORY_USERPTR;
+           buf.memory = V4L2_MEMORY_USERPTR;LOGE("mIsUsbCamera != true");
         }
 
         ret = ioctl (mCameraFd, VIDIOC_QUERYBUF, &buf);
@@ -2461,7 +2474,7 @@ int V4L2CameraDevice::v4l2QueryBuf()
 
         switch (buf.memory) {
             case V4L2_MEMORY_MMAP:
-                LOGV("V4L2_MEMORY_MMAP");
+		LOGE("V4L2_MEMORY_MMAP");
                 mMapMem.mem[i] = mmap (0, buf.length,
                             PROT_READ | PROT_WRITE,
                             MAP_SHARED,
@@ -2478,7 +2491,7 @@ int V4L2CameraDevice::v4l2QueryBuf()
                 LOGV("index: %d, mem: %lx, len: %x, offset: %x", i, (unsigned long)mMapMem.mem[i], buf.length, buf.m.offset);
                 break;
             case V4L2_MEMORY_USERPTR:
-                LOGV("V4L2_MEMORY_USERPTR");
+		LOGE("V4L2_MEMORY_USERPTR");
                 mMapMem.mem[i] = mPreviewWindow->ddr_vir[i];
                 mMapMem.length = GPU_BUFFER_ALIGN(ALIGN_16B(mFrameWidth)*mFrameHeight*3/2);/*buf.length;*/
                 mMapMem.length = buf.length;
@@ -2512,6 +2525,7 @@ int V4L2CameraDevice::v4l2QueryBuf()
         {
             int buffer_len = mFrameWidth * mFrameHeight * 3 / 2;
 #ifdef USE_SHARE_BUFFER
+            mMapMem.nShareBufFd[i] = mPreviewWindow->mPrivateHandle[i]->share_fd; //share fd to picture encode
             mVideoBuffer.buf_vir_addr[i] = (unsigned long)mPreviewWindow->ddr_vir[i];
 #else 
 #ifdef USE_ION_MEM_ALLOCATOR

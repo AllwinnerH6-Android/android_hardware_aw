@@ -75,6 +75,10 @@ void* submitThreadLoop(void *display)
 			myThread->mutex->unlock();
 			continue;
 		}
+		if (isStopSubmit()) {
+			myThread->mutex->unlock();
+			continue;;
+		}
 		showfps(disp);
 		ctrlfps = debugctrlfps();
 		if (list_empty(&myThread->SubmitHead)) {

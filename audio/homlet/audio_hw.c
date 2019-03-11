@@ -4067,6 +4067,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     {
         ALOGV("in AUDIO_PARAMETER_DEVICES_IN_ACTIVE: %s", value);
         set_audio_devices_active(adev, AUDIO_IN, value);
+        force_all_standby(adev);
     }
 
     ret = str_parms_get_str(parms, "mediasw.sft.rawdata", value, sizeof(value));
@@ -5188,13 +5189,10 @@ static int adev_open(const hw_module_t* module, const char* name,
     pthread_mutex_unlock(&adev->lock);
 
     *device = &adev->hw_device.common;
-ALOGD("line:%d,func:%s\n", __LINE__, __FUNCTION__);
-    if (pcm_event_thread_start() < 0 ) {
+    /*if (pcm_event_thread_start() < 0 ) {
         ALOGE("pcm event thread start fail.");
         return -1;
-    }
-
-   ALOGE("OK:  ****LINE:%d,FUNC:%s",__LINE__,__FUNCTION__);
+    }*/
     return 0;
 
 #if !LOG_NDEBUG

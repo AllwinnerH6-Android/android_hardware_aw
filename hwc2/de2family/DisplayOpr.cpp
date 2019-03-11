@@ -32,7 +32,7 @@
 #include <cutils/properties.h>
 #include <math.h>
 
-#ifdef HOMLET_PLATFORM
+#ifdef TARGET_PLATFORM_HOMLET
 #include "other/homlet.h"
 #endif
 
@@ -47,8 +47,8 @@
 #define ATW_DEVICE_MAX_EYE_BUFFER_WIDTH 1280
 #define SCALEMAX 32
 #define SCALEMIN 16
-#define MAXUIWIDTH 1920
-#define MAXUIHEIGHT 1080
+#define MAXUIWIDTH 1280
+#define MAXUIHEIGHT 720
 
 using namespace android;
 
@@ -557,7 +557,7 @@ void reCalPipeForHDR(Display_t *display)
 	}
 
 	if (isHDR) {
-#ifdef HOMLET_PLATFORM
+#ifdef TARGET_PLATFORM_HOMLET
 		homlet_dataspace_change_callback(isHDR);
 #endif
 		deHw->fixPipeNumber = 2;
@@ -804,8 +804,9 @@ static bool canAssignSpecialPipe(Display_t *display, PipeInfo_t *matchPipe,
 				< deHw->fixPipeNumber - deHw->fixVideoPipeNum)
 				return true;
 		}
-		if (type == VIDEO
-			&& deHw->mustViPipe + deHw->uiButVi < deHw->fixVideoPipeNum) {
+		if (type == VIDEO && ((matchPipe->type == UI_NO_ALPHA
+			&& deHw->mustViPipe + deHw->uiButVi <= deHw->fixVideoPipeNum)
+			|| deHw->mustViPipe + deHw->uiButVi < deHw->fixVideoPipeNum)) {
 			return true;
 		}
 	}
@@ -1105,9 +1106,10 @@ assign_FB:
 				assignedlayer = node_to_item(layer->node.prev, Layer_t, node);
 
 			resetHwPipe(display, resetedPipe, resetedPipe, false);
-			if (deHw->currentPipe > 0) {
+			//already set in resetHwPipe
+			/*if (deHw->currentPipe > 0) {
 				deHw->currentPipe--;
-			}
+			}*/
 		}
 	}
 
@@ -1165,7 +1167,20 @@ assign_FB:
 			matchPipe->planeAlpha = layer->planeAlpha;
 		setPipeScale(matchPipe, layer);
 		matchPipe->curentMem += addmem;
-		matchPipe->hwcLayer[matchPipe->layNum++] = layer;
+		bool isAreadyIn = false;
+		//avoding video pipe set twice
+		if (matchPipe->layNum > 0 && layerIsVideo(layer)) {
+			for (int layerId = 0; layerId < matchPipe->layNum; layerId++) {
+				if (matchPipe->hwcLayer[layerId] == layer) {
+					isAreadyIn = true;
+					ALOGV("video layer set twice z=%d", layer->zorder);
+					break;
+				}
+			}
+		}
+		if (!isAreadyIn) {
+			matchPipe->hwcLayer[matchPipe->layNum++] = layer;
+		}
 
 	}
 
@@ -1185,6 +1200,7 @@ static void TryToAssignLayer(Display_t *display)
 {
 	struct listnode *node;
 	Layer_t *layer;
+	int tryTime = 0;
 
 	list_for_each(node, display->layerSortedByZorder) {
         layer = node_to_item(node, Layer_t, node);
@@ -1199,6 +1215,11 @@ static void TryToAssignLayer(Display_t *display)
 		}
 		layer = assignLayersToPipe(display, layer);
 		node = &layer->node;
+		tryTime++;
+		if (tryTime > 1024/*max try time*/) {
+			ALOGE("TryToAssignLayer too many times");
+			return;
+		}
     }
 
 }
@@ -1862,7 +1883,7 @@ static int setActiveConfig(Display_t *display, DisplayConfig_t *config)
 	if (hwdisplay->type.type == DISP_OUTPUT_TYPE_LCD)
 		return 0;
 
-#ifndef HOMLET_PLATFORM
+#ifndef TARGET_PLATFORM_HOMLET
 	if (ioctl(dispFd, DISP_DEVICE_SWITCH, (unsigned long)arg) == -1) {
 		ALOGE("switch device failed!\n");
 	}
@@ -1989,8 +2010,9 @@ int initVariableHdmi(Display_t *display)
 	int i = 0, num = 0, ret = -1, numbconfig = 0, j = 0, fix = -1;
 	DisplayConfig_t *displayconfig;
 	bool all_support = 0;
-	int configId = 0;
+#ifdef TARGET_PLATFORM_HOMLET
 	DisplayPrivate_t *hwdisplay = toHwDisplay(display);
+#endif
 
 	arg[0] = display->displayId;
 	num = arraySizeOf(hdmi_support);
@@ -2039,7 +2061,7 @@ loop:
 		/* Andorid O set the 1'st default. not the get active config to set default.
 		 * Bug? so we  must set 1'st is the active config.
 		 */
-#ifdef HOMLET_PLATFORM
+#ifdef TARGET_PLATFORM_HOMLET
 		/* for homlet platform, the fb max should 1920x1080, the VarDisplay* due to hdmi resolution */
 		displayconfig->width = MAXUIWIDTH;
 		displayconfig->height = MAXUIHEIGHT;
@@ -2049,7 +2071,7 @@ loop:
 #endif
 		displayconfig->vsyncPeriod = 1000000000 / hdmi_support[j].refreshRate;
 		displayconfig->mode = hdmi_support[j].mode;
-#ifdef HOMLET_PLATFORM
+#ifdef TARGET_PLATFORM_HOMLET
 		displayconfig->VarDisplayWidth = hdmi_support[j].width;
 		displayconfig->VarDisplayHeight = hdmi_support[j].height;
 #else
@@ -2059,9 +2081,8 @@ loop:
 		displayconfig->dpiX = 213000;
 		displayconfig->dpiY = 213000;
 		display->displayConfigList[i] = displayconfig;
-#ifdef HOMLET_PLATFORM
+#ifdef TARGET_PLATFORM_HOMLET
 		if (displayconfig->mode == hwdisplay->type.mode) {
-			configId = i;
 			fix = i;
 			ALOGD("initVariableHdmi use driver's mode=%d", displayconfig->mode);
 		}
@@ -2079,17 +2100,23 @@ loop:
 	displayconfig = display->displayConfigList[0];
 	display->displayConfigList[0] = display->displayConfigList[fix];
 	display->displayConfigList[fix] = displayconfig;
-	display->activeConfigId = configId;
+	display->activeConfigId = 0;
 	display->default_mode = display->displayConfigList[0]->mode;
-#ifdef HOMLET_PLATFORM
+#ifdef TARGET_PLATFORM_HOMLET
 	display->VarDisplayHeight  = display->displayConfigList[0]->VarDisplayHeight;
 	display->VarDisplayWidth = display->displayConfigList[0]->VarDisplayWidth;
+	if (display->vpercent > 0 && display->vpercent <= 100) {
+		ALOGD("initVariableHdmi using displayd's margin=%d", display->vpercent);
+	} else {
+		display->vpercent = 100;
+		display->hpercent = 100;
+	}
 #else
 	display->VarDisplayHeight  = display->displayConfigList[0]->height;
 	display->VarDisplayWidth = display->displayConfigList[0]->width;
-#endif
 	display->vpercent = 100;
 	display->hpercent = 100;
+#endif
 	if (toClientId(display->clientId) != 0) {
 		int w,h;
 		if (!hwc_getPriDispSlt(&w, &h)) {
@@ -2152,8 +2179,17 @@ int initVariableCvbs(Display_t *display)
 	}
 	display->configNumber = 1;
 	display->activeConfigId = 0;
+#ifdef TARGET_PLATFORM_HOMLET
+	if (display->vpercent > 0 && display->vpercent <= 100) {
+		ALOGD("initVariableCvbs using displayd's margin=%d", display->vpercent);
+	} else {
+		display->vpercent = 100;
+		display->hpercent = 100;
+	}
+#else
 	display->vpercent = 100;
 	display->hpercent = 100;
+#endif
 	if (toClientId(display->clientId) != 0) {
 		int w,h;
 		if (!hwc_getPriDispSlt(&w, &h)) {
@@ -2243,10 +2279,18 @@ int de2Init(Display_t* display)
 	hwdisplay = toHwDisplay(display);
 	arg[0] = display->displayId;
 	arg[1] = (unsigned long)&hwdisplay->type;
-	ret = ioctl(dispFd, DISP_GET_OUTPUT, arg);
-	if (ret)
-		ALOGE("display get display type fail:%d...", ret);
-
+	int tryTime = 0;
+	do {
+		ret = ioctl(dispFd, DISP_GET_OUTPUT, arg);
+		if (ret) {
+			ALOGE("display get display type fail:%d...", ret);
+		}
+		if (hwdisplay->type.type == DISP_OUTPUT_TYPE_NONE) {
+			ALOGE("disp %d type = none:%d ms", display->displayId, tryTime * 20);
+			usleep(20 * 1000);
+		}
+		tryTime++;
+	} while (hwdisplay->type.type == DISP_OUTPUT_TYPE_NONE && tryTime < 250);
 	if (display->displayId == 1) {
 		arg[0] = 0;
 		arg[1] = (unsigned long)&pricfg;
@@ -2275,7 +2319,8 @@ int de2Init(Display_t* display)
 		case DISP_OUTPUT_TYPE_VGA:
 			break;
 		default:
-			ALOGE("display get a dissupprt display type ...");
+			ALOGE("display  %d get a dissupprt display type ...%d",
+					display->displayId, hwdisplay->type.type);
 			return -1;
 	}
 

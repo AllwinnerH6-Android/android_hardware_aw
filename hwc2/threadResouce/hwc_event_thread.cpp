@@ -402,7 +402,7 @@ init_epoll:
 			}else if (fd == context->socketpair_fd) {
 				/* update the commit thread info */
 				mesg_pair_t cmd_esg;
-				while(read(context->socketpair_fd, &cmd_esg, sizeof(cmd_esg))
+				if (read(context->socketpair_fd, &cmd_esg, sizeof(cmd_esg))
 					== sizeof(cmd_esg)) {
 					Display_t *disp;
 					disp = findDisplayforvir(cmd_esg.disp);
@@ -419,7 +419,7 @@ init_epoll:
 							callHotplug(context, disp, 1);
 					break;
 					case 2://3D
-#ifdef HOMLET_PLATFORM
+#ifdef TARGET_PLATFORM_HOMLET
 					if (DISPLAY_2D_ORIGINAL != (enum display_3d_mode)cmd_esg.data) {
 						switchDisplay(disp, DISP_OUTPUT_TYPE_HDMI, DISP_TV_MOD_1080P_24HZ_3D_FP);
 					} else {

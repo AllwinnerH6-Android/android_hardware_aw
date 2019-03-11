@@ -475,6 +475,7 @@ extern unsigned int ionGetMetadataFlag(buffer_handle_t handle);
 extern void debugInit(int num);
 extern void debugDeinit(void);
 extern bool showLayers(void);
+extern bool isStopSubmit();
 extern void showfps(Display_t *display);
 extern void dumpLayerZorder(Layer_t *layer,unsigned int framecout);
 extern void closeLayerZorder(Layer_t *layer, struct disp_layer_config2 *config2);

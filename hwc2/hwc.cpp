@@ -16,7 +16,7 @@
 #include "hwc.h"
 #include <utils/Trace.h>
 
-#ifdef HOMLET_PLATFORM
+#ifdef TARGET_PLATFORM_HOMLET
 #include "other/homlet.h"
 #endif
 
@@ -319,7 +319,7 @@ int32_t hwc_get_active_config(hwc2_device_t* device, hwc2_display_t display,
     Display_t *dp = findDisplay(display);
 	unusedpara(device);
 
-    if(!dp) {
+    if(!dp || (dp != NULL && dp->configNumber <= 0)) {
         ALOGE("ERROR %s:bad display", __FUNCTION__);
         return HWC2_ERROR_BAD_DISPLAY;
     }
@@ -459,12 +459,13 @@ int32_t hwc_get_display_configs(hwc2_device_t* device, hwc2_display_t display,
     Display_t *dp = findDisplay(display);
 	unusedpara(device);
 
-    if(!dp) {
+    if(!dp || (dp != NULL && dp->configNumber <= 0)) {
         ALOGE("ERROR %s:bad display", __FUNCTION__);
         return HWC2_ERROR_BAD_DISPLAY;
     }
 
     if(outConfigs == NULL){
+        ALOGE("ERROR %s:dp->configNumber=%d", __FUNCTION__, dp->configNumber);
         *outNumConfigs = dp->configNumber;
     }else{
         for(uint32_t i = 0; i < *outNumConfigs; i++){
@@ -673,11 +674,35 @@ int32_t hwc_present_display(hwc2_device_t* device, hwc2_display_t display,
 	dp->active = 1;
 	dispOpr = dp->displayOpration;
 
+#ifdef TARGET_PLATFORM_HOMLET
+	struct listnode *node1, *node2;
+	int cachedNum = 0;
+	submitThread_t *myThread = dp->commitThread;
+	myThread->mutex->lock();
+	list_for_each_safe(node1, node2, &myThread->SubmitHead) {
+		cachedNum++;
+	}
+	myThread->mutex->unlock();
+	/*get frames in cached*/
+	if (cachedNum > 1) {
+		if (toClientId(dp->clientId) == 0) {
+			/*should not happen as surfacefliner had synced to primary disp*/
+			ALOGV("ERROR %s:bad primary disp vsync", __FUNCTION__);
+		} else {
+			/*external disp consume too slow should drop some*/
+			ALOGV("%s:drop 1 frame for external disp", __FUNCTION__);
+			*outRetireFence = -1;
+			return HWC2_ERROR_NONE;
+		}
+	}
+#endif
+
 	pthread_mutex_lock(&dp->listMutex);
 	if(dispOpr->presentDisplay(dp, &sync, &privateLayerSize)) {
 		pthread_mutex_unlock(&dp->listMutex);
 		ALOGE("ERROR %s:%d(%d)present err...", __FUNCTION__,
 			(int)toClientId(dp->clientId), dp->displayId);
+                *outRetireFence = -1;
 		return HWC2_ERROR_NO_RESOURCES;
 	}
 	submitLayer = submitLayerCacheGet();
