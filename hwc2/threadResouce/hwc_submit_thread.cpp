@@ -106,6 +106,8 @@ void* submitThreadLoop(void *display)
 						ALOGE("submit loop waite aquire fence err %d", layer->acquireFence);
 						/* dump fence */
 					}
+					close((int)layer->acquireFence);
+					layer->acquireFence = -1;
 				}
 				/* gralloc unlock guarantee sync the buffer... */
 				/*if (checkSwWrite(layer))

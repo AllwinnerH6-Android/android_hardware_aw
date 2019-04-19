@@ -205,6 +205,10 @@ loop:
 			goto loop;
 		}
 	}
+	/*refresh screen avoiding black screen when vice disp newly plug in*/
+	if (old == 0 && primary_disp == 1) {
+		callRefresh(primarydisp);
+	}
 	return old;
 }
 
@@ -692,6 +696,18 @@ int32_t hwc_present_display(hwc2_device_t* device, hwc2_display_t display,
 			/*external disp consume too slow should drop some*/
 			ALOGV("%s:drop 1 frame for external disp", __FUNCTION__);
 			*outRetireFence = -1;
+			pthread_mutex_lock(&dp->listMutex);
+			list_for_each(node, dp->layerSortedByZorder) {
+				layer = node_to_item(node, Layer_t, node);
+
+				if (layer->releaseFence >= 0)
+					close(layer->releaseFence);
+				layer->releaseFence = -1;
+				if (layer->acquireFence >= 0)
+					close(layer->acquireFence);
+				layer->acquireFence = -1;
+			}
+			pthread_mutex_unlock(&dp->listMutex);
 			return HWC2_ERROR_NONE;
 		}
 	}
@@ -1440,9 +1456,13 @@ int hwc_setSwitchdevice(struct switchdev *switchdev)
 	/* 1-->2, no 0-->2  must promise primary display is in active*/
 	if (old_active < new_active) {
 		if (new_active == 2) {
-			hwc_setHotplug(1, 1);
-			if (old == 1)
+			if (old == 1) {
 				init_sync(0);
+				/*fence will be reset and never signal when init without deinit*/
+				/*so, deinit here first, hotplug below will init back*/
+				deinit_sync(1);
+			}
+			hwc_setHotplug(1, 1);
 		}
 	}
 	/* 1==1, 2==2, swap it, and if 1 deactive will relase the swap out fence */
@@ -1465,8 +1485,8 @@ int hwc_getPriDispSlt(int* width, int* height) {
     for (int i = 0; i < numberDisplay; i++) {
         if(toClientId(mDisplay[i]->clientId) == 0) {
             Display_t *dp = mDisplay[i];
-            *width = dp->displayConfigList[dp->activeConfigId]->VarDisplayWidth;
-            *height = dp->displayConfigList[dp->activeConfigId]->VarDisplayHeight;
+            *width = dp->displayConfigList[dp->activeConfigId]->width;
+            *height = dp->displayConfigList[dp->activeConfigId]->height;
             return 0;
         }
     }

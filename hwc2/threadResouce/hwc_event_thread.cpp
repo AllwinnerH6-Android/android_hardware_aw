@@ -64,6 +64,9 @@ typedef struct eventThreadContext {
 }eventThreadContext_t;
 
 int hdmifd = -1;
+#ifndef TARGET_PLATFORM_HOMLET
+int cvbsfd = -1;
+#endif
 eventThreadContext_t eventContext;
 #define EPOLL_COUNT 6
 static void *eventThreadLoop(void *user);
@@ -300,8 +303,7 @@ hotplugUeventParse(eventThreadContext_t *context, const char *msg)
 			for (int i = 0; i < context->numberDisplay; i++) {
 				display = context->display[i];
 
-				if (!strcmp(display->displayName, switch_name)
-					&& display->plugInListen) {
+				if (display->plugInListen) {
 					if (!strcmp("hdmi", switch_name)) {
 						if (hdmifd >= 0) {
 							lseek(hdmifd, 5, SEEK_SET);
@@ -310,6 +312,16 @@ hotplugUeventParse(eventThreadContext_t *context, const char *msg)
 							callHotplug(context, display, state == '1'? 1 : 0);
 						}
 					}
+#ifndef TARGET_PLATFORM_HOMLET
+					if (!strcmp("cvbs", switch_name)) {
+						if (cvbsfd >= 0) {
+							lseek(cvbsfd, 5, SEEK_SET);
+							read(cvbsfd, &state, 1);
+							ALOGD("Receive %s hotplug state[%d]", switch_name, state-48);
+							callHotplug(context, display, state == '1'? 1 : 0);
+						}
+					}
+#endif
 					/* if you need cvbs or other display please add youself here */
 				}
 			}
@@ -346,7 +358,11 @@ static void *eventThreadLoop(void *user)
 		hdmifd = open("/sys/class/extcon/hdmi/state", O_RDONLY);
 		if (hdmifd < 0) {
 			ALOGE("open hdmi state err %d...", hdmifd);
+#ifndef TARGET_PLATFORM_HOMLET
+			goto init_cvbs;
+#else
 			goto init_epoll;
+#endif
 		}
 		lseek(hdmifd, 5, SEEK_SET);
 		read(hdmifd, &state, 1);
@@ -360,6 +376,28 @@ static void *eventThreadLoop(void *user)
 				}
 			}
 	}
+
+#ifndef TARGET_PLATFORM_HOMLET
+init_cvbs:
+	if (cvbsfd == -1) {
+		cvbsfd = open("/sys/class/extcon/cvbs/state", O_RDONLY);
+		if (cvbsfd < 0) {
+			ALOGE("open cvbs state err %d...", cvbsfd);
+			goto init_epoll;
+		}
+		lseek(cvbsfd, 5, SEEK_SET);
+		read(cvbsfd, &state, 1);
+		ALOGD("cvbs pulgin when init hwc[%d]", state-48);
+		if (state == '1')
+			for (int i = 0; i < context->numberDisplay; i++) {
+				display = context->display[i];
+				if (!strcmp(context->display[0]->displayName, "lcd")) {
+					if (strcmp(display->displayName, "lcd"))
+						callHotplug(context, display, state == '1'? 1 : 0);
+				}
+			}
+	}
+#endif
 
 init_epoll:
 	context->epoll_fd = epoll_create(EPOLL_COUNT);

@@ -2154,18 +2154,13 @@ int initVariableCvbs(Display_t *display)
 	displayconfig = (DisplayConfig_t *)hwc_malloc(sizeof(DisplayConfig_t));
 	display->displayConfigList[0] = displayconfig;
 
-	if (tv_mode == DISP_TV_MOD_PAL) {
-		display->VarDisplayWidth = 720;
-		display->VarDisplayHeight = 576;
-		displayconfig->width = 720;
-		displayconfig->height = 576;
-		displayconfig->VarDisplayHeight = display->VarDisplayHeight;
-		displayconfig->VarDisplayWidth = display->VarDisplayWidth;
-		displayconfig->dpiX = 213000;
-		displayconfig->dpiY = 213000;
-		refreshRate = 50;
-		display->displayConfigList[0]->vsyncPeriod = 1000000000 / refreshRate;
-	} else if (tv_mode == DISP_TV_MOD_NTSC) {
+#ifndef TARGET_PLATFORM_HOMLET
+	if (display->default_mode == DISP_TV_MOD_NTSC
+			|| display->default_mode == DISP_TV_MOD_PAL ) {
+		tv_mode = display->default_mode;
+	}
+#endif
+	if (tv_mode == DISP_TV_MOD_NTSC) {
 		display->VarDisplayWidth = 720;
 		display->VarDisplayHeight = 480;
 		displayconfig->width = 720;
@@ -2176,6 +2171,20 @@ int initVariableCvbs(Display_t *display)
 		displayconfig->dpiY = 213000;
 		refreshRate = 60;
 		display->displayConfigList[0]->vsyncPeriod = 1000000000 / refreshRate;
+		displayconfig->mode = DISP_TV_MOD_NTSC;
+	} else {
+		/*tv_mode == DISP_TV_MOD_PAL from driver or as default*/
+		display->VarDisplayWidth = 720;
+		display->VarDisplayHeight = 576;
+		displayconfig->width = 720;
+		displayconfig->height = 576;
+		displayconfig->VarDisplayHeight = display->VarDisplayHeight;
+		displayconfig->VarDisplayWidth = display->VarDisplayWidth;
+		displayconfig->dpiX = 213000;
+		displayconfig->dpiY = 213000;
+		refreshRate = 50;
+		display->displayConfigList[0]->vsyncPeriod = 1000000000 / refreshRate;
+		displayconfig->mode = DISP_TV_MOD_PAL;
 	}
 	display->configNumber = 1;
 	display->activeConfigId = 0;
@@ -2203,11 +2212,14 @@ int initVariableCvbs(Display_t *display)
 			}
 		}
 	}
+	setActiveConfig(display, display->displayConfigList[0]);
 	return 0;
 }
 
 extern int hdmifd;
-
+#ifndef TARGET_PLATFORM_HOMLET
+extern int cvbsfd;
+#endif
 int init_sync(int hwid)
 {
 	unsigned long arg[4] = {0};
@@ -2304,6 +2316,17 @@ int de2Init(Display_t* display)
 				}
 			}
 		}
+#ifndef TARGET_PLATFORM_HOMLET
+		if (pricfg.type != DISP_OUTPUT_TYPE_TV) {
+			if (cvbsfd > 0) {
+				lseek(cvbsfd, 5, SEEK_SET);
+				read(cvbsfd, &state, 1);
+				if (state == '1') {
+					hwdisplay->type.type = DISP_OUTPUT_TYPE_TV;
+				}
+			}
+		}
+#endif
 	}
 
 	switch (hwdisplay->type.type) {

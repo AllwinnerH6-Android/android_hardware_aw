@@ -17,6 +17,10 @@
 #ifndef __AUDIO_DATA_DUMP_H_
 #define __AUDIO_DATA_DUMP_H_
 
+enum audio_data_dump_direction {
+    AUDIO_CAPTURE = 0,
+    AUDIO_PLAYBACK = 1,
+};
 /*
  * the audio_data_dump struct
  *
@@ -24,6 +28,7 @@
 struct audio_data_dump {
 	FILE *file;
 	bool enable_flags;
+	enum audio_data_dump_direction direct;
 };
 
 /*

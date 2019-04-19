@@ -28,15 +28,18 @@
 
 #define PROPERTY_AUDIO_DATA_DUMP_OUT "persist.audio.dump_data.out"
 #define PROPERTY_AUDIO_DATA_DUMP_IN "persist.audio.dump_data.in"
-#define AUDIO_DATA_DUMP_OUTFILE "/data/audio_d/out.pcm"
-#define AUDIO_DATA_DUMP_INFILE "/data/audio_d/in.pcm"
+#define AUDIO_DATA_DUMP_OUTFILE "/data/vendor/hardware/audio_d/out.pcm"
+#define AUDIO_DATA_DUMP_INFILE "/data/vendor/hardware/audio_d/in.pcm"
 /*
  * @{func}:audio dump data dynamicly
  * @{direction}: out when true and in when false
  */
 void init_dump_flags(bool direction, struct audio_data_dump *con)
 {
-    if (direction) {
+
+    con->direct = direction;
+
+    if (direction == AUDIO_PLAYBACK) {
         con->enable_flags = property_get_bool(PROPERTY_AUDIO_DATA_DUMP_OUT, false);
         if (con->enable_flags)
             ALOGD("++++%d:init_dump_flags : dump out data flags is true", __LINE__);
@@ -83,11 +86,37 @@ static size_t get_data_by_bytes(const void *srcbuffer, size_t bytes, const void 
 size_t debug_dump_data(const void *srcbuffer,size_t bytes, struct audio_data_dump *con)
 {
     size_t ret = 0;
+
+    if (con->direct == AUDIO_PLAYBACK) {
+        con->enable_flags = property_get_bool(PROPERTY_AUDIO_DATA_DUMP_OUT, false);
+        if (con->enable_flags && !con->file) {
+            con->file = fopen(AUDIO_DATA_DUMP_OUTFILE, "w+");
+            if(!con->file) {
+		ALOGD("audio_hal_dump_data: open outfile(%s) err!!!", AUDIO_DATA_DUMP_OUTFILE);
+                return -1;
+            }
+        }
+    } else {
+        con->enable_flags = property_get_bool(PROPERTY_AUDIO_DATA_DUMP_IN, false);
+        if (con->enable_flags && !con->file) {
+            con->file = fopen(AUDIO_DATA_DUMP_INFILE, "w+");
+            if(!con->file) {
+		ALOGD("audio_hal_dump_data: open infile(%s) err!!!", AUDIO_DATA_DUMP_INFILE);
+                return -1;
+            }
+        }
+    }
+
     if (con->file) {
         ret = get_data_by_bytes(srcbuffer, bytes, (void *)con->file);
     } else  {
         //ALOGD("++++%d:can't debug_dump_data due to file NULL err!!!", __LINE__);
         return -1;
+    }
+
+    if (!(con->enable_flags) && (con->file)) {
+        fclose(con->file);
+        con->file = NULL;
     }
     return ret;
 }
