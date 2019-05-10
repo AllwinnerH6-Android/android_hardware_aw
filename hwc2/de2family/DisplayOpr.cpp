@@ -2189,6 +2189,8 @@ int initVariableCvbs(Display_t *display)
 	display->configNumber = 1;
 	display->activeConfigId = 0;
 #ifdef TARGET_PLATFORM_HOMLET
+	displayconfig->width = MAXUIWIDTH;
+	displayconfig->height = MAXUIHEIGHT;
 	if (display->vpercent > 0 && display->vpercent <= 100) {
 		ALOGD("initVariableCvbs using displayd's margin=%d", display->vpercent);
 	} else {
@@ -2288,6 +2290,7 @@ int de2Init(Display_t* display)
 		return 0;
 	}
 
+
 	hwdisplay = toHwDisplay(display);
 	arg[0] = display->displayId;
 	arg[1] = (unsigned long)&hwdisplay->type;
@@ -2302,6 +2305,18 @@ int de2Init(Display_t* display)
 			usleep(20 * 1000);
 		}
 		tryTime++;
+#ifdef TARGET_PLATFORM_HOMLET
+		/*fix: sf crash when de0 not init. TODO:it show refer to sysconfig*/
+		if (tryTime > 50 && display->displayId == 0) {
+			hwdisplay->type.type = DISP_OUTPUT_TYPE_HDMI;
+			arg[0] = display->displayId;
+			arg[1] = hwdisplay->type.type;
+			arg[2] = display->default_mode;
+			if (ioctl(dispFd, DISP_DEVICE_SWITCH, (unsigned long)arg) == -1) {
+				ALOGE("de0 switch device failed!\n");
+			}
+		}
+#endif
 	} while (hwdisplay->type.type == DISP_OUTPUT_TYPE_NONE && tryTime < 250);
 	if (display->displayId == 1) {
 		arg[0] = 0;
@@ -2328,7 +2343,6 @@ int de2Init(Display_t* display)
 		}
 #endif
 	}
-
 	switch (hwdisplay->type.type) {
 		case DISP_OUTPUT_TYPE_LCD:
 			initPermanentDisplay(display);
